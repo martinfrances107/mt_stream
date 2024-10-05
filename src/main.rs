@@ -46,7 +46,7 @@ fn main() {
     let stage1: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
-        let mut a;
+        let a;
         loop {
             let result = rx1.recv();
             a = match result {
@@ -84,7 +84,7 @@ fn main() {
     let stage2: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
-        let mut a;
+        let a;
         loop {
             let result = rx2.recv();
             a = match result {
@@ -122,17 +122,17 @@ fn main() {
     let stage3: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
-        let mut a;
+        let a;
         loop {
             let result = rx3.recv();
             a = match result {
                 Ok(message) => {
-                    let res_tx = match message {
+                    match message {
                         Message::EndPoint => println!("Stage 3 Endpoint"),
                         Message::PolygonStart => println!("Stage 3 PolygonStart"),
                         Message::LineStart => println!("Stage 3 LineStart"),
-                        Message::Point(_) => {
-                            println!("stage 3 point entry()");
+                        Message::Point((c, m)) => {
+                            println!("stage 3 Point {c:#?} m{m:#?}");
                         }
                         Message::LineEnd => println!("Stage 3 LineEnd"),
                         Message::PolygonEnd => println!("Stage 3 PolygonEnd"),
@@ -155,7 +155,7 @@ fn main() {
         tx1.send(Message::LineStart).expect("step 1 fail");
         tx1.send(Message::Point((Coord { x: 1., y: 2. }, 25u8)))
             .expect("step 2 failed");
-        tx1.send(Message::Point((Coord { x: 10., y: 20. }, 25u8)))
+        tx1.send(Message::Point((Coord { x: 10., y: 20. }, 250u8)))
             .expect("step 2 failed");
         tx1.send(Message::LineEnd).expect("step 4 failed");
     }
