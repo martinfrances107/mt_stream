@@ -72,10 +72,7 @@ fn main() {
                 Err(e) => ChannelError::Rx(e),
             };
 
-            match a {
-                ChannelError::Rx(_) => break,
-                ChannelError::Tx(_) => break,
-            }
+            break;
         }
         a
     });
@@ -110,10 +107,7 @@ fn main() {
                 Err(e) => ChannelError::Rx(e),
             };
 
-            match a {
-                ChannelError::Rx(_) => break,
-                ChannelError::Tx(_) => break,
-            }
+            break;
         }
         a
     });
@@ -142,10 +136,7 @@ fn main() {
                 Err(e) => ChannelError::Rx(e),
             };
 
-            match a {
-                ChannelError::Rx(_) => break,
-                ChannelError::Tx(_) => break,
-            }
+            break;
         }
         a
     });
