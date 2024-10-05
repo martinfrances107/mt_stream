@@ -5,4 +5,9 @@ making [rust_g3_geo](https://crates.io/crates/d3_geo_rs) multi-threaded.
 
 In rust_d3_geo each stage of the 6 stage pipeline will be a new thread - Message(Enum) is passes via a "std::sync::mpscc"
 
-Depends on [anyhow](https://crates.io/crates/anyhow) otherwise the two possible return types become complex.
+Each thread loop over a input stage
+
+Questions Remaining.
+
+How to I terminate the thread and signal that the stream is complete.
+So that I can acces the state of the endpoint via Result?

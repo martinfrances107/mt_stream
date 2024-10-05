@@ -1,7 +1,9 @@
-use anyhow::Context;
-use anyhow::Result;
+// use anyhow::Context;
+// use anyhow::Result;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::RecvError;
+use std::sync::mpsc::SendError;
 use std::sync::mpsc::Sender;
 use std::thread;
 use std::thread::JoinHandle;
@@ -22,6 +24,10 @@ enum Message<T> {
     PolygonEnd,
 }
 
+enum ChannelError {
+    Rx(RecvError),
+    Tx(SendError<Message<f64>>),
+}
 fn main() {
     println!("Hello, world!");
 
@@ -37,75 +43,124 @@ fn main() {
     let (tx3, rx3): (Sender<Message<f64>>, Receiver<Message<f64>>) = mpsc::channel();
 
     let mut handles = vec![];
-    let stage1: JoinHandle<Result<(), _>> = thread::spawn(move || {
+    let stage1: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
-
-        let message = rx1.recv().context("stage 1 rx error")?;
-        match message {
-            message => match message {
-                Message::EndPoint => tx2.send(message).context("s1"),
-                Message::PolygonStart => tx2.send(message).context("s1"),
-                Message::LineStart => tx2.send(message).context("s1"),
-                Message::Point(_) => {
-                    println!("stage 1 point entry()");
-                    tx2.send(message).context("s1")
+        let mut a;
+        loop {
+            let result = rx1.recv();
+            a = match result {
+                Ok(message) => {
+                    let res_tx = match message {
+                        Message::EndPoint => tx2.send(message),
+                        Message::PolygonStart => tx2.send(message),
+                        Message::LineStart => tx2.send(message),
+                        Message::Point(_) => {
+                            println!("stage 1 point entry()");
+                            tx2.send(message)
+                        }
+                        Message::LineEnd => tx2.send(message),
+                        Message::PolygonEnd => tx2.send(message),
+                    };
+                    match res_tx {
+                        Ok(_) => {
+                            continue;
+                        }
+                        Err(e) => ChannelError::Tx(e),
+                    }
                 }
-                Message::LineEnd => tx2.send(message).context("s1"),
-                Message::PolygonEnd => tx2.send(message).context("s1"),
-            },
+                Err(e) => ChannelError::Rx(e),
+            };
+
+            match a {
+                ChannelError::Rx(_) => break,
+                ChannelError::Tx(_) => break,
+            }
         }
+        a
     });
     handles.push(stage1);
 
-    let stage2: JoinHandle<Result<(), _>> = thread::spawn(move || {
+    let stage2: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
-        let message = rx2.recv().context("stage 2 error")?;
-        match message {
-            Message::EndPoint => tx3.send(message).context("a"),
-            Message::PolygonStart => tx3.send(message).context("a"),
-            Message::LineStart => tx3.send(message).context("a"),
-            Message::Point(_) => {
-                println!("stage 2 point entry()");
-                tx3.send(message).context("a")
+        let mut a;
+        loop {
+            let result = rx2.recv();
+            a = match result {
+                Ok(message) => {
+                    let res_tx = match message {
+                        Message::EndPoint => tx3.send(message),
+                        Message::PolygonStart => tx3.send(message),
+                        Message::LineStart => tx3.send(message),
+                        Message::Point(_) => {
+                            println!("stage 2 point entry()");
+                            tx3.send(message)
+                        }
+                        Message::LineEnd => tx3.send(message),
+                        Message::PolygonEnd => tx3.send(message),
+                    };
+                    match res_tx {
+                        Ok(_) => {
+                            continue;
+                        }
+                        Err(e) => ChannelError::Tx(e),
+                    }
+                }
+                Err(e) => ChannelError::Rx(e),
+            };
+
+            match a {
+                ChannelError::Rx(_) => break,
+                ChannelError::Tx(_) => break,
             }
-            Message::LineEnd => tx3.send(message).context("a"),
-            Message::PolygonEnd => tx3.send(message).context("a"),
         }
+        a
     });
     handles.push(stage2);
 
-    let stage3 = thread::spawn(move || {
+    let stage3: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
-        match rx3.recv() {
-            Ok(message) => match message {
-                Message::EndPoint => {
-                    println!("stage 3 Endpoint()");
+        let mut a;
+        loop {
+            let result = rx3.recv();
+            a = match result {
+                Ok(message) => {
+                    let res_tx = match message {
+                        Message::EndPoint => println!("Stage 3 Endpoint"),
+                        Message::PolygonStart => println!("Stage 3 PolygonStart"),
+                        Message::LineStart => println!("Stage 3 LineStart"),
+                        Message::Point(_) => {
+                            println!("stage 3 point entry()");
+                        }
+                        Message::LineEnd => println!("Stage 3 LineEnd"),
+                        Message::PolygonEnd => println!("Stage 3 PolygonEnd"),
+                    };
+                    continue;
                 }
-                Message::PolygonStart => println!("PolygonStart"),
-                Message::LineStart => println!("LineStart"),
-                Message::Point((c, m)) => {
-                    println!("stage 3 point entry() {:#?} {}", c, m);
-                }
-                Message::LineEnd => println!("LineEnd"),
-                Message::PolygonEnd => println!("PolygonEnd"),
-            },
-            Err(_) => {
-                println!("Stage 3 is closing");
-                panic!();
+                Err(e) => ChannelError::Rx(e),
+            };
+
+            match a {
+                ChannelError::Rx(_) => break,
+                ChannelError::Tx(_) => break,
             }
         }
-        Ok(())
+        a
     });
     handles.push(stage3);
 
-    tx1.send(Message::Point((Coord { x: 1., y: 2. }, 25u8)))
-        .expect("initial submission");
-
+    {
+        tx1.send(Message::LineStart).expect("step 1 fail");
+        tx1.send(Message::Point((Coord { x: 1., y: 2. }, 25u8)))
+            .expect("step 2 failed");
+        tx1.send(Message::Point((Coord { x: 10., y: 20. }, 25u8)))
+            .expect("step 2 failed");
+        tx1.send(Message::LineEnd).expect("step 4 failed");
+    }
     // Wait for all the stages to complete.
     for h in handles {
-        h.join().unwrap().expect("Failed join stages");
+        h.join().unwrap();
     }
 }
