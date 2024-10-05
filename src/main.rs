@@ -31,10 +31,7 @@ enum ChannelError {
 fn main() {
     println!("Hello, world!");
 
-    // Construct pipeline.
-    // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
-    // where `T` is the type of the message to be transferred
-    // (type annotation is superfluous)
+    // Prepare stage-interlink channels
     // input to stage 1. rx consumed in stage 1
     let (tx1, rx1): (Sender<Message<f64>>, Receiver<Message<f64>>) = mpsc::channel();
     // input to stage 2. ex consumed in stage 2
@@ -43,13 +40,14 @@ fn main() {
     let (tx3, rx3): (Sender<Message<f64>>, Receiver<Message<f64>>) = mpsc::channel();
 
     let mut handles = vec![];
+
+    // Stage pipelines.
     let stage1: JoinHandle<ChannelError> = thread::spawn(move || {
         // The thread takes ownership over `thread_tx`
         // Each thread queues a message in the channel
         let a;
         loop {
-            let result = rx1.recv();
-            a = match result {
+            a = match rx1.recv() {
                 Ok(message) => {
                     let res_tx = match message {
                         Message::EndPoint => tx2.send(message),
@@ -83,8 +81,7 @@ fn main() {
         // Each thread queues a message in the channel
         let a;
         loop {
-            let result = rx2.recv();
-            a = match result {
+            a = match rx2.recv() {
                 Ok(message) => {
                     let res_tx = match message {
                         Message::EndPoint => tx3.send(message),
@@ -118,15 +115,14 @@ fn main() {
         // Each thread queues a message in the channel
         let a;
         loop {
-            let result = rx3.recv();
-            a = match result {
+            a = match rx3.recv() {
                 Ok(message) => {
                     match message {
                         Message::EndPoint => println!("Stage 3 Endpoint"),
                         Message::PolygonStart => println!("Stage 3 PolygonStart"),
                         Message::LineStart => println!("Stage 3 LineStart"),
                         Message::Point((c, m)) => {
-                            println!("stage 3 Point {c:#?} m{m:#?}");
+                            println!("Stage 3 Point {c:#?} m{m:#?}");
                         }
                         Message::LineEnd => println!("Stage 3 LineEnd"),
                         Message::PolygonEnd => println!("Stage 3 PolygonEnd"),
@@ -150,6 +146,7 @@ fn main() {
             .expect("step 2 failed");
         tx1.send(Message::LineEnd).expect("step 4 failed");
     }
+
     // Wait for all the stages to complete.
     for h in handles {
         h.join().unwrap();
